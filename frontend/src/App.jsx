@@ -154,7 +154,7 @@ function App() {
     instance.lang = 'en-US';
     instance.onresult = (event) => {
       let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      for (let i = 0; i < event.results.length; i += 1) {
         const text = event.results[i][0].transcript;
         if (event.results[i].isFinal) finalTranscript.current += `${text} `;
         else interim += text;
@@ -221,19 +221,20 @@ function App() {
           {audioUrl && !recording && <audio className="practice-audio" controls src={audioUrl} />}
           <textarea className="practice-transcript" value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder="Your words will appear here…" />
           <button className="score-btn" disabled={loading} onClick={score}>{loading ? 'Checking…' : 'Get my score ⭐'}</button>
-          {feedback && <div className="practice-feedback">
-            <StarRating score={feedback.overall} />
-            <div className="score-pills">
-              <div className="score-pill big"><strong>{feedback.overall}</strong><span>Total</span></div>
-              <div className="score-pill"><strong>{feedback.pronunciation}</strong><span>Speaking</span></div>
-              <div className="score-pill"><strong>{feedback.correctness}</strong><span>Words</span></div>
-              <div className="score-pill"><strong>{feedback.fluency}</strong><span>Flow</span></div>
-            </div>
-            <div className="notes">
-              {feedback.feedback.map((note, i) => <div className="note" key={i}><span>{note.type === 'strength' ? '⭐' : '💡'}</span><div><b>{note.label}</b><p>{note.detail}</p></div></div>)}
-            </div>
-          </div>}
         </div>
+        {feedback && <div className="scoreboard-overlay">
+          <button className="close-scoreboard" onClick={() => setFeedback(null)}>×</button>
+          <StarRating score={feedback.overall} />
+          <div className="score-pills">
+            <div className="score-pill big"><strong>{feedback.overall}</strong><span>Total</span></div>
+            <div className="score-pill"><strong>{feedback.pronunciation}</strong><span>Speaking</span></div>
+            <div className="score-pill"><strong>{feedback.correctness}</strong><span>Words</span></div>
+            <div className="score-pill"><strong>{feedback.fluency}</strong><span>Flow</span></div>
+          </div>
+          <div className="notes">
+            {feedback.feedback.map((note, i) => <div className="note" key={i}><span>{note.type === 'strength' ? '⭐' : '💡'}</span><div><b>{note.label}</b><p>{note.detail}</p></div></div>)}
+          </div>
+        </div>}
       </div>
     );
   }

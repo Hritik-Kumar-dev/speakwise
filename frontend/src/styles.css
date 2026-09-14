@@ -1,45 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Quicksand:wght@500;700&display=swap');
+@font-face { font-family: 'Geist Mono'; src: url('/Geist_Mono/GeistMono-VariableFont_wght.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
 * { box-sizing: border-box; }
-body { margin: 0; font-family: 'Nunito', sans-serif; background: #f7f4ff; color: #2d3142; }
+body { margin: 0; font-family: 'Geist Mono', monospace; background: #f7f4ff; color: #2d3142; }
 .home-screen { min-height: 100vh; display: flex; flex-direction: column; }
 .home-header { padding: 20px 32px; }
-.home-header .logo { font: 800 26px 'Quicksand', sans-serif; color: #7b61ff; display: flex; align-items: center; gap: 10px; }
+.home-header .logo { font: 800 26px 'Geist Mono', monospace; color: #7b61ff; display: flex; align-items: center; gap: 10px; }
 .home-main { flex: 1; max-width: 1100px; width: 100%; margin: 0 auto; padding: 0 24px 60px; }
-.home-title { font: 800 38px 'Quicksand', sans-serif; text-align: center; margin: 10px 0 8px; }
+.home-title { font: 800 38px 'Geist Mono', monospace; text-align: center; margin: 10px 0 8px; }
 .home-sub { text-align: center; color: #6b6e84; font-size: 18px; margin: 0 0 32px; }
 .scenario-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 22px; }
 .scenario-card { position: relative; height: 220px; border-radius: 28px; border: none; background-size: cover; background-position: center; cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; padding: 20px; text-align: left; overflow: hidden; box-shadow: 0 12px 24px rgba(123,97,255,0.18); transition: transform .15s; }
 .scenario-card:hover { transform: translateY(-4px); }
 .scenario-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(0,0,0,0.55)); border-radius: 28px; }
-.scenario-name { position: relative; z-index: 1; font: 700 24px 'Quicksand', sans-serif; color: #fff; }
+.scenario-name { position: relative; z-index: 1; font: 700 24px 'Geist Mono', monospace; color: #fff; }
 .scenario-desc { position: relative; z-index: 1; color: #f0eeff; font-size: 14px; }
 .custom-section { background: #fff; border-radius: 28px; padding: 28px; margin-top: 36px; box-shadow: 0 12px 24px rgba(123,97,255,0.12); }
 .custom-section h2 { margin: 0 0 18px; color: #7b61ff; }
-.custom-section input { width: 100%; padding: 14px 18px; border: 2px solid #ece8f3; border-radius: 16px; font-size: 16px; margin-bottom: 14px; outline: none; }
+.custom-section input { width: 100%; padding: 14px 18px; border: 2px solid #ece8f3; border-radius: 16px; font-size: 16px; margin-bottom: 14px; outline: none; font-family: 'Geist Mono', monospace; }
 .upload-btn { display: block; width: 100%; padding: 14px; background: #f0ecff; color: #7b61ff; border-radius: 16px; text-align: center; font-weight: 700; cursor: pointer; margin-bottom: 14px; }
 .upload-btn input { display: none; }
 .preview { width: 100%; max-height: 180px; object-fit: cover; border-radius: 16px; margin-bottom: 14px; }
-.add-btn { width: 100%; padding: 16px; border: none; border-radius: 16px; background: linear-gradient(90deg, #ff7eb6, #ff8f7a); color: #fff; font: 700 18px 'Quicksand', sans-serif; cursor: pointer; }
+.add-btn { width: 100%; padding: 16px; border: none; border-radius: 16px; background: linear-gradient(90deg, #ff7eb6, #ff8f7a); color: #fff; font: 700 18px 'Geist Mono', monospace; cursor: pointer; }
 .practice-screen { min-height: 100vh; background-size: cover; background-position: center; position: relative; }
-.home-btn { position: absolute; top: 20px; left: 20px; background: #fff; border: none; padding: 10px 18px; border-radius: 20px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10; }
+.home-btn { position: absolute; top: 20px; left: 20px; background: #fff; border: none; padding: 10px 18px; border-radius: 20px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10; font-family: 'Geist Mono', monospace; }
 .centered-speak { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
-.speak-btn { width: 180px; height: 180px; border-radius: 50%; border: none; background: linear-gradient(135deg, #ff7eb6, #ff8f7a); color: #fff; font: 800 28px 'Quicksand', sans-serif; cursor: pointer; box-shadow: 0 12px 32px rgba(255,127,182,0.35); transition: transform .15s; }
+.speak-btn { width: 180px; height: 180px; border-radius: 50%; border: none; background: linear-gradient(135deg, #ff7eb6, #ff8f7a); color: #fff; font: 800 28px 'Geist Mono', monospace; cursor: pointer; box-shadow: 0 12px 32px rgba(255,127,182,0.35); transition: transform .15s; }
 .speak-btn:hover { transform: scale(1.05); }
 .speak-btn.recording { background: linear-gradient(135deg, #ff5e5e, #d93636); animation: pulse-record 1.2s infinite; }
 @keyframes pulse-record { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-.timer { font: 700 32px 'Quicksand', sans-serif; color: #fff; margin-top: 16px; text-shadow: 0 2px 6px rgba(0,0,0,0.35); }
-.bottom-panel { position: absolute; bottom: 0; left: 0; right: 0; max-height: 50vh; overflow-y: auto; background: rgba(255,255,255,0.96); border-radius: 28px 28px 0 0; padding: 24px 32px 40px; box-shadow: 0 -8px 30px rgba(0,0,0,0.15); }
-.status-text { color: #6b6e84; text-align: center; margin: 0 0 10px; }
+.timer { font: 700 32px 'Geist Mono', monospace; color: #fff; margin-top: 16px; text-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+.bottom-panel { position: absolute; bottom: 0; left: 0; right: 0; max-height: 45vh; overflow-y: auto; background: rgba(0,0,0,0.78); border-radius: 28px 28px 0 0; padding: 24px 32px 40px; box-shadow: 0 -8px 30px rgba(0,0,0,0.35); color: #fff; }
+.status-text { color: #cfc9e4; text-align: center; margin: 0 0 10px; }
 .practice-audio { width: 100%; margin: 10px 0; accent-color: #7b61ff; }
-.practice-transcript { width: 100%; min-height: 80px; border: 2px solid #ece8f3; border-radius: 18px; padding: 14px; font-size: 16px; font-family: inherit; resize: vertical; outline: none; }
+.practice-transcript { width: 100%; min-height: 80px; border: 2px solid rgba(255,255,255,0.25); border-radius: 18px; padding: 14px; font-size: 16px; font-family: 'Geist Mono', monospace; resize: vertical; outline: none; background: rgba(255,255,255,0.1); color: #fff; }
+.practice-transcript::placeholder { color: rgba(255,255,255,0.5); }
 .practice-transcript:focus { border-color: #7b61ff; }
-.score-btn { width: 100%; padding: 16px; border: none; border-radius: 16px; background: linear-gradient(90deg, #43d9bd, #27bfa3); color: #fff; font: 700 20px 'Quicksand', sans-serif; cursor: pointer; margin-top: 14px; }
+.score-btn { width: 100%; padding: 16px; border: none; border-radius: 16px; background: linear-gradient(90deg, #43d9bd, #27bfa3); color: #fff; font: 700 20px 'Geist Mono', monospace; cursor: pointer; margin-top: 14px; }
 .score-btn:disabled { opacity: .6; }
-.practice-feedback { margin-top: 20px; text-align: left; }
+.scoreboard-overlay { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.96); border-radius: 28px; padding: 28px; max-width: 520px; width: 90%; max-height: 80vh; overflow-y: auto; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); z-index: 20; }
+.close-scoreboard { position: absolute; top: 12px; right: 16px; background: none; border: none; font-size: 24px; color: #6b6e84; cursor: pointer; }
 .kid-stars { text-align: center; font-size: 28px; margin-bottom: 14px; }
 .score-pills { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .score-pill { background: #fff; border-radius: 18px; padding: 14px 20px; text-align: center; min-width: 80px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-.score-pill strong { display: block; font: 800 24px 'Quicksand', sans-serif; }
+.score-pill strong { display: block; font: 800 24px 'Geist Mono', monospace; }
 .score-pill span { font-size: 12px; color: #6b6e84; }
 .score-pill.big { background: #7b61ff; color: #fff; }
 .score-pill.big span { color: #e0dcff; }
@@ -48,4 +50,4 @@ body { margin: 0; font-family: 'Nunito', sans-serif; background: #f7f4ff; color:
 .note b { display: block; color: #7b61ff; }
 .note p { margin: 4px 0 0; color: #2d3142; }
 .home-footer { text-align: center; padding: 24px; color: #6b6e84; }
-@media (max-width: 640px) { .home-title { font-size: 30px; } .scenario-grid { grid-template-columns: 1fr; } .speak-btn { width: 140px; height: 140px; font-size: 22px; } .bottom-panel { padding: 18px 20px 30px; } }
+@media (max-width: 640px) { .home-title { font-size: 30px; } .scenario-grid { grid-template-columns: 1fr; } .speak-btn { width: 140px; height: 140px; font-size: 22px; } .bottom-panel { padding: 18px 20px 30px; } .scoreboard-overlay { width: 95%; padding: 22px; } }
