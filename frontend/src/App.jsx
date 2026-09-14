@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Mic, Music, Briefcase, Book } from 'lucide-react';
 
 const BUILTIN_SCENARIOS = [
-  { id: 'stage', name: 'Stage', description: 'Give a speech on the big stage!', image: '/stage.png' },
-  { id: 'concert', name: 'Concert', description: 'Sing or speak to a huge crowd.', image: '/concert.png' },
-  { id: 'interview', name: 'Interview', description: 'Answer questions like a pro.', image: '/interview.png' },
-  { id: 'classroom', name: 'Classroom', description: 'Share an idea in class.', image: '/classroom.png' },
+  { id: 'stage', name: 'Stage', description: 'Give a speech on the big stage!', image: '/stage.png', accent: '#f59e0b', icon: Mic },
+  { id: 'concert', name: 'Concert', description: 'Sing or speak to a huge crowd.', image: '/concert.png', accent: '#a855f7', icon: Music },
+  { id: 'interview', name: 'Interview', description: 'Answer questions like a pro.', image: '/interview.png', accent: '#3b82f6', icon: Briefcase },
+  { id: 'classroom', name: 'Classroom', description: 'Share an idea in class.', image: '/classroom.png', accent: '#10b981', icon: Book },
 ];
+
+const DEMO_SCRIPTS = ['I speak English', 'every single day', 'to become confident', 'in any situation.'];
 
 function speak(text) {
   if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
@@ -42,6 +45,50 @@ function StarRating({ score }) {
   return <div className="kid-stars">{Array.from({ length: 5 }, (_, i) => <span key={i}>{i < filled ? '⭐' : '☆'}</span>)}</div>;
 }
 
+function DemoTranscript() {
+  const [text, setText] = useState('');
+  const [showScore, setShowScore] = useState(false);
+
+  const typeScript = useCallback(() => {
+    setText('');
+    setShowScore(false);
+    let i = 0;
+    let fullText = '';
+    const interval = setInterval(() => {
+      if (i < DEMO_SCRIPTS.length) {
+        fullText += (i > 0 ? ' ' : '') + DEMO_SCRIPTS[i];
+        setText(fullText);
+        i++;
+      } else {
+        clearInterval(interval);
+        setTimeout(() => setShowScore(true), 800);
+      }
+    }, 600);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(typeScript, 1000);
+    return () => clearTimeout(timeout);
+  }, [typeScript]);
+
+  return (
+    <div className="demo-transcript">
+      {/* Waveform bars */}
+      <div className="demo-waveform" aria-hidden="true">
+        {Array.from({ length: 7 }, (_, i) => (
+          <span key={i} className="wave-bar" style={{ animationDelay: `${i * 0.1}s` }} />
+        ))}
+      </div>
+      <div className="demo-lines">
+        <span>{text}</span>
+        <span className="cursor">|</span>
+      </div>
+      {showScore && <span className="score-badge">92</span>}
+    </div>
+  );
+}
+
 function App() {
   const [scenarios, setScenarios] = useState(BUILTIN_SCENARIOS);
   const [view, setView] = useState('home');
@@ -55,6 +102,7 @@ function App() {
   const [audioUrl, setAudioUrl] = useState('');
   const [customName, setCustomName] = useState('');
   const [customImage, setCustomImage] = useState(null);
+  const [staggered, setStaggered] = useState(false);
   const startedAt = useRef(0);
   const listening = useRef(false);
   const finalTranscript = useRef('');
@@ -70,6 +118,11 @@ function App() {
     if (stored) {
       try { setScenarios((prev) => [...prev, ...JSON.parse(stored)]); } catch (_) { /* ignore */ }
     }
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setStaggered(true), 100);
+    return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => () => {
@@ -241,21 +294,68 @@ function App() {
 
   return (
     <div className="home-screen">
-      <header className="home-header"><span className="logo">🎙️ SpeakWell</span></header>
+      {/* Animated gradient mesh background */}
+      <div className="bg-mesh" aria-hidden="true" />
+
+      <header className="home-header">
+        <span className="logo">🎙️ SpeakWell</span>
+      </header>
+
       <main className="home-main">
-        <h1 className="home-title">Pick a place to practice! 🎤</h1>
-        <p className="home-sub">Choose a scene, then speak your own words. We will listen and help you improve.</p>
-        <div className="scenario-grid">
-          {scenarios.map((scenario) => (
-            <button key={scenario.id} className="scenario-card" onClick={() => startScenario(scenario)} style={{ backgroundImage: `url(${scenario.image})` }}>
-              <span className="scenario-name">{scenario.name}</span>
-              <span className="scenario-desc">{scenario.description}</span>
-            </button>
-          ))}
+        {/* ── Hero ── */}
+        <section className="hero-section">
+          <h1 className="hero-title">Speak without fear.</h1>
+          <p className="hero-sub">
+            Practice English speaking fluency in real scenarios.
+            Stage, concert, interview, or classroom — speak your words and get instant feedback.
+          </p>
+          <button
+            className="primary-btn"
+            onClick={() => document.getElementById('scenarios')?.scrollIntoView({ behavior: 'smooth' })}
+          >
+            Start practicing
+          </button>
+          <DemoTranscript />
+        </section>
+
+        {/* ── Scene grid ── */}
+        <div className="scene-grid-wrap">
+          <h2 className="scenes-heading">Choose your scene</h2>
+          <div className="scenario-grid" id="scenarios">
+            {scenarios.map((scenario, index) => (
+              <button
+                key={scenario.id}
+                className={`scenario-card${staggered ? ' visible' : ''}`}
+                style={{
+                  backgroundImage: `url(${scenario.image})`,
+                  /* staggered fade-up via transition-delay */
+                  '--delay': `${index * 80}ms`,
+                  /* per-card accent color for hover glow */
+                  '--accent': scenario.accent || '#7b61ff',
+                }}
+                onClick={() => startScenario(scenario)}
+              >
+                {scenario.icon && (
+                  <div className="scenario-icon-badge" style={{ '--accent': scenario.accent || '#7b61ff' }}>
+                    <scenario.icon size={16} strokeWidth={2.5} />
+                  </div>
+                )}
+                <span className="scenario-name">{scenario.name}</span>
+                <span className="scenario-desc">{scenario.description}</span>
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* ── Custom scene card ── */}
         <section className="custom-section">
           <h2>Make your own scene ✨</h2>
-          <input type="text" placeholder="Scene name, like My Room" value={customName} onChange={(e) => setCustomName(e.target.value)} />
+          <input
+            type="text"
+            placeholder="Scene name, like My Room"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+          />
           <label className="upload-btn">
             {customImage ? 'Photo added!' : 'Choose a background photo'}
             <input type="file" accept="image/*" onChange={handleImageUpload} />
@@ -263,7 +363,17 @@ function App() {
           {customImage && <img className="preview" src={customImage} alt="Preview" />}
           <button className="add-btn" onClick={addCustomScenario}>Add my scene</button>
         </section>
+
+        {/* ── Trust / stats strip ── */}
+        <div className="stats-strip">
+          <span>10,000+ sessions practiced</span>
+          <span className="stats-dot" aria-hidden="true">·</span>
+          <span>4.8/5 average confidence rating</span>
+          <span className="stats-dot" aria-hidden="true">·</span>
+          <span>100% free to start</span>
+        </div>
       </main>
+
       <footer className="home-footer">© 2024 SpeakWell · Speak, practice, improve!</footer>
     </div>
   );
