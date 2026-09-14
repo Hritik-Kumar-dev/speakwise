@@ -212,10 +212,11 @@ function App() {
     return (
       <div className="practice-screen" style={{ backgroundImage: `url(${activeScenario.image})` }}>
         <button className="home-btn" onClick={goHome}>← Home</button>
-        <div className="practice-overlay">
-          <h2 className="scenario-title">{activeScenario.name}</h2>
+        <div className="centered-speak">
           <button className={`speak-btn ${recording ? 'recording' : ''}`} onClick={toggleRecording}><span>{recording ? 'Stop' : 'Speak'}</span></button>
           <div className="timer">{formatTime(seconds)}</div>
+        </div>
+        <div className="bottom-panel">
           <p className="status-text">{status}</p>
           {audioUrl && !recording && <audio className="practice-audio" controls src={audioUrl} />}
           <textarea className="practice-transcript" value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder="Your words will appear here…" />
