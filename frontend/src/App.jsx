@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
-const FALLBACK_PROMPTS = [{ id: 'daily-routine', title: 'Talk about your day', level: 'A2 · Everyday English', text: 'I usually start my day with a cup of coffee and a short walk.', tip: 'Connect usually start and your day smoothly.' }];
+const FALLBACK_PROMPTS = [
+  { id: 'daily-routine', title: 'My Day', level: 'Easy', text: 'I usually start my day with a cup of coffee and a short walk.', tip: 'Say the words slowly and clearly.' },
+];
 
 function speak(text) {
   if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
@@ -12,12 +14,20 @@ function formatTime(seconds) {
 
 function localScore(text) {
   const count = text.split(/\s+/).length;
-  const value = Math.min(97, 55 + count * 3);
-  return { overall: value, pronunciation: Math.max(50, value - 3), correctness: value, fluency: Math.max(50, value - 6), feedback: [{ label: 'Keep practicing', detail: 'Your response has been received. Keep connecting words smoothly.', type: 'tip' }], alternative: 'I think practicing a little every day makes learning a language much easier.' };
+  const value = Math.min(95, 60 + count * 3);
+  return {
+    overall: value,
+    pronunciation: Math.max(55, value - 3),
+    correctness: value,
+    fluency: Math.max(55, value - 5),
+    feedback: [{ label: 'Great try!', detail: 'Keep speaking. You will get better every time.', type: 'strength' }],
+    alternative: 'I think practicing a little every day makes learning easier.',
+  };
 }
 
-function ScoreCard({ label, value, description, primary = false }) {
-  return <div className={`score-card ${primary ? 'primary' : ''}`}><span>{label}</span><strong>{value ?? '—'}</strong>{!primary && <div className="score-line"><i style={{ width: `${value ?? 0}%` }} /></div>}<small>{primary ? 'out of 100' : description}</small></div>;
+function StarRating({ score }) {
+  const filled = Math.max(1, Math.min(5, Math.round(score / 20)));
+  return <div className="kid-stars">{Array.from({ length: 5 }, (_, i) => <span key={i}>{i < filled ? '⭐' : '☆'}</span>)}</div>;
 }
 
 function App() {
@@ -26,7 +36,7 @@ function App() {
   const [transcript, setTranscript] = useState('');
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const [status, setStatus] = useState('Your microphone is ready when you are.');
+  const [status, setStatus] = useState('Tap the big button to start!');
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState('');
@@ -70,13 +80,13 @@ function App() {
     setFeedback(null);
     setSeconds(0);
     setAudioUrl('');
-    setStatus('Your microphone is ready when you are.');
+    setStatus('Tap the big button to start!');
   }
 
   function toggleRecording() {
     if (recording) {
       stopEverything();
-      setStatus('Recording saved. Review your words, then get your score.');
+      setStatus('Good job! Listen to your voice, then get your score.');
       return;
     }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -87,8 +97,9 @@ function App() {
     setSeconds(0);
     setTranscript('');
     setAudioUrl('');
+    setFeedback(null);
     setRecording(true);
-    setStatus(Recognition ? 'Listening… speak naturally' : 'Recording audio. Speech recognition is unavailable here, so type your words below.');
+    setStatus(Recognition ? 'I am listening. Say the sentence!' : 'Recording your voice. Type your words below when done.');
     timer.current = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt.current) / 1000)), 1000);
 
     if (navigator.mediaDevices?.getUserMedia) {
@@ -104,7 +115,7 @@ function App() {
         mediaRecorder.current = recorder;
         recorder.start();
       }).catch(() => {
-        if (listening.current) setStatus('Microphone access was blocked. You can still type your words below.');
+        if (listening.current) setStatus('Microphone access blocked. You can type your words below!');
       });
     }
 
@@ -125,14 +136,14 @@ function App() {
     instance.onerror = (event) => {
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         listening.current = false;
-        setStatus('Microphone permission is blocked. Allow mic access in your browser, or type your words below.');
+        setStatus('Microphone permission is blocked. Ask a grown-up, or type your words below.');
       } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
-        setStatus('We could not hear that clearly. Keep speaking, or edit the transcript.');
+        setStatus('I did not catch that. Try speaking a little louder!');
       }
     };
     instance.onend = () => {
       if (!listening.current) return;
-      try { instance.start(); } catch (_) { /* recognizer restarting too fast; onend fires again */ }
+      try { instance.start(); } catch (_) { /* already started */ }
     };
     recognition.current = instance;
     try { instance.start(); } catch (_) { /* already started */ }
@@ -140,7 +151,7 @@ function App() {
 
   async function score() {
     if (recording) stopEverything();
-    if (!transcript.trim()) { setStatus('Add or record a response before scoring it.'); return; }
+    if (!transcript.trim()) { setStatus('Type or speak your sentence first, then tap Score!'); return; }
     setLoading(true);
     try {
       const response = await fetch('/api/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ promptId: prompt.id, transcript, duration: seconds }) });
@@ -153,18 +164,54 @@ function App() {
     }
   }
 
-  if (!prompt) return <div className="loading-page">Loading your practice prompts…</div>;
+  if (!prompt) return <div className="loading-page">Loading…</div>;
 
-  return <>
-    <header className="topbar"><a className="brand" href="/"><span className="brand-mark">S</span><span>Speak<span className="brand-accent">Well</span></span></a><nav><a className="active" href="#practice">Practice</a><a href="#progress">Progress</a><a href="#tips">Tips</a></nav><button className="profile" aria-label="Open profile">JD</button></header>
-    <main id="practice" className="shell">
-      <section className="intro"><div><p className="eyebrow">DAILY SPEAKING PRACTICE</p><h1>Find your voice.<br /><em>Speak with confidence.</em></h1><p className="subhead">A few minutes every day can make a real difference. Practice naturally, get thoughtful feedback, and watch yourself improve.</p></div><div className="streak"><span className="flame">✦</span><div><strong>7 day streak</strong><small>Keep it going!</small></div></div></section>
-      <section className="layout"><div className="practice-card"><div className="card-head"><div><span className="pill">{prompt.level}</span><h2>{prompt.title}</h2></div><button className="icon-button" onClick={() => selectPrompt((index + 1) % prompts.length)} title="Next prompt">↻</button></div><div className="prompt-box"><span className="quote">“</span><p>{prompt.text}</p><button className="sound" onClick={() => speak(prompt.text)} aria-label="Listen to phrase">◖</button></div><p className="instruction"><span>◎</span> Take a breath, then say the phrase naturally.</p><div className="recorder"><div className={`wave ${recording ? 'active' : ''}`}>{Array.from({ length: 29 }, (_, item) => <i key={item} />)}</div><div className="recorder-controls"><button className={`record ${recording ? 'recording' : ''}`} onClick={toggleRecording}><span className="record-dot" /><span>{recording ? 'Stop recording' : 'Start recording'}</span></button><span className="timer">{formatTime(seconds)}</span></div>{audioUrl && !recording && <audio className="playback" controls src={audioUrl} />}<p className="mic-status">{status}</p></div><div className="transcript"><div className="section-label"><span>Your words</span><small>EDIT IF NEEDED</small></div><textarea value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="Your spoken words will appear here…" /><button className="score-button" disabled={loading} onClick={score}>{loading ? 'Analyzing your speaking…' : <>Score my speaking <span>→</span></>}</button></div></div>
-        <aside className="side-column"><div className="mini-card"><div className="section-label"><span>Today’s progress</span><small>SESSION 01</small></div><div className="progress-row"><div className="ring"><strong>{feedback?.overall ?? '—'}</strong><small>AVG SCORE</small></div><div className="stats"><div><strong>{feedback ? Math.max(1, Math.ceil(seconds / 60)) : 0}</strong><span>minutes practiced</span></div><div><strong>{feedback ? 1 : 0}</strong><span>phrases completed</span></div></div></div><div className="bar"><span style={{ width: `${feedback?.overall ?? 0}%` }} /></div></div><div className="mini-card tip-card" id="tips"><span className="tip-icon">✦</span><div><strong>Speak, don’t perfect.</strong><p>Fluency grows when you keep going—even when a sentence isn’t perfect.</p></div></div><div className="mini-card"><div className="section-label"><span>Choose a prompt</span><small>{prompts.length} AVAILABLE</small></div><div className="prompt-list">{prompts.map((item, itemIndex) => <button key={item.id} className={`prompt-choice ${itemIndex === index ? 'active' : ''}`} onClick={() => selectPrompt(itemIndex)}>{item.title}<small>{item.level}</small></button>)}</div></div></aside>
-      </section>
-      <section className="feedback-section"><div className="feedback-heading"><div><p className="eyebrow">YOUR FEEDBACK</p><h2>Here’s how you did</h2></div><span className="confidence">Keep building · You’re on your way</span></div><div className="scores"><ScoreCard label="OVERALL SCORE" value={feedback?.overall} primary /><ScoreCard label="PRONUNCIATION" value={feedback?.pronunciation} description="Clear and understandable" /><ScoreCard label="CORRECTNESS" value={feedback?.correctness} description="Words and grammar" /><ScoreCard label="FLUENCY" value={feedback?.fluency} description="Natural rhythm and pace" /></div><div className="feedback-grid"><div className="feedback-card"><div className="section-label"><span>Helpful notes</span></div>{feedback ? feedback.feedback.map((note, noteIndex) => <div className="note" key={`${note.label}-${noteIndex}`}><span className={`note-dot ${note.type === 'strength' ? 'green' : ''}`} /><div><b>{note.label}</b><p>{note.detail}</p></div></div>) : <p className="empty">Complete a practice round to see personalized feedback.</p>}</div><div className="feedback-card alternative"><div className="section-label"><span>A more natural way to say it</span></div><p>{feedback?.alternative ?? 'Your improved version will appear after you practice.'}</p><button onClick={() => speak(feedback?.alternative ?? '')}>◖ Listen to example</button></div></div></section>
-    </main><footer><span>© 2024 SpeakWell</span><span>Practice with patience · Grow with every word</span></footer>
-  </>;
+  return (
+    <div className="app-shell">
+      <header className="kid-header">
+        <a className="kid-brand" href="/"><span className="emoji">🎙️</span><span>SpeakWell</span></a>
+        <nav className="kid-nav"><a className="active" href="#practice">Practice</a><a href="#progress">Progress</a></nav>
+        <button className="kid-avatar" aria-label="Profile">👦</button>
+      </header>
+      <main id="practice" className="kid-main">
+        <section className="kid-card">
+          <span className="kid-level">{prompt.level}</span>
+          <h1 className="kid-title">{prompt.title}</h1>
+          <div className="kid-phrase-box"><span>“{prompt.text}”</span><button onClick={() => speak(prompt.text)} aria-label="Listen">🔊</button></div>
+          <p className="kid-instruction">Tap the red button and say the sentence out loud.</p>
+          <button className={`kid-big-button ${recording ? 'recording' : ''}`} onClick={toggleRecording}><span className="mic-emoji">🎤</span><span>{recording ? 'Stop' : 'Talk'}</span></button>
+          <div className="kid-timer">{formatTime(seconds)}</div>
+          <p className="kid-status">{status}</p>
+          {audioUrl && !recording && <audio className="kid-audio" controls src={audioUrl} />}
+        </section>
+        <section className="kid-card">
+          <label className="kid-label">Your words</label>
+          <textarea className="kid-transcript" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="Your words will appear here…" />
+          <button className="kid-score-btn" disabled={loading} onClick={score}>{loading ? 'Checking…' : 'Score my speaking ⭐'}</button>
+        </section>
+        <section className="kid-card" style={{ textAlign: 'left' }}>
+          <h2 style={{ marginTop: 0, color: 'var(--purple-dark)' }}>Pick another</h2>
+          <div className="kid-prompts">{prompts.map((item, itemIndex) => <button key={item.id} className={itemIndex === index ? 'active' : ''} onClick={() => selectPrompt(itemIndex)}>{item.title}<span className="level">{item.level}</span></button>)}</div>
+        </section>
+        {feedback && <section className="kid-feedback-card">
+          <h3>How you did</h3>
+          <StarRating score={feedback.overall} />
+          <div className="kid-scoreboard">
+            <div className="kid-score-pill big"><span className="num">{feedback.overall}</span><span className="label">Total</span></div>
+            <div className="kid-score-pill"><span className="num">{feedback.pronunciation}</span><span className="label">Speaking</span></div>
+            <div className="kid-score-pill"><span className="num">{feedback.correctness}</span><span className="label">Words</span></div>
+            <div className="kid-score-pill"><span className="num">{feedback.fluency}</span><span className="label">Flow</span></div>
+          </div>
+          <h3 style={{ marginTop: 24 }}>Helpful notes</h3>
+          {feedback.feedback.map((note, noteIndex) => <div className="kid-note" key={`${note.label}-${noteIndex}`}><span className="dot">{note.type === 'strength' ? '⭐' : '💡'}</span><div><b>{note.label}</b>{note.detail}</div></div>)}
+          <h3 style={{ marginTop: 24 }}>Better way to say it</h3>
+          <div className="kid-alternative">{feedback.alternative}</div>
+          <button className="kid-score-btn" onClick={() => speak(feedback.alternative)}>🔊 Listen</button>
+        </section>}
+      </main>
+      <footer className="kid-footer">© 2024 SpeakWell · Keep speaking, keep smiling!</footer>
+    </div>
+  );
 }
 
 export default App;
