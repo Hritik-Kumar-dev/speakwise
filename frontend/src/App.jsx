@@ -29,12 +29,14 @@ function App() {
   const [status, setStatus] = useState('Your microphone is ready when you are.');
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState('');
   const startedAt = useRef(0);
+  const listening = useRef(false);
+  const finalTranscript = useRef('');
   const recognition = useRef(null);
   const mediaRecorder = useRef(null);
   const mediaStream = useRef(null);
   const audioChunks = useRef([]);
-  const [audioUrl, setAudioUrl] = useState('');
   const timer = useRef(null);
   const prompt = prompts[index];
 
@@ -42,47 +44,102 @@ function App() {
     fetch('/api/prompts').then((response) => response.json()).then(setPrompts).catch(() => setPrompts(FALLBACK_PROMPTS));
   }, []);
 
-  useEffect(() => () => { clearInterval(timer.current); recognition.current?.stop(); }, []);
+  useEffect(() => () => {
+    listening.current = false;
+    clearInterval(timer.current);
+    try { recognition.current?.stop(); } catch (_) { /* already stopped */ }
+    mediaRecorder.current?.state === 'recording' && mediaRecorder.current.stop();
+    mediaStream.current?.getTracks().forEach((track) => track.stop());
+  }, []);
+
+  function stopEverything() {
+    listening.current = false;
+    clearInterval(timer.current);
+    try { recognition.current?.stop(); } catch (_) { /* already stopped */ }
+    recognition.current = null;
+    mediaRecorder.current?.state === 'recording' && mediaRecorder.current.stop();
+    mediaStream.current?.getTracks().forEach((track) => track.stop());
+    mediaStream.current = null;
+    setRecording(false);
+  }
 
   function selectPrompt(nextIndex) {
+    if (recording) stopEverything();
     setIndex(nextIndex);
     setTranscript('');
     setFeedback(null);
     setSeconds(0);
+    setAudioUrl('');
     setStatus('Your microphone is ready when you are.');
   }
 
   function toggleRecording() {
     if (recording) {
-      clearInterval(timer.current);
-      recognition.current?.stop();
-      setRecording(false);
+      stopEverything();
       setStatus('Recording saved. Review your words, then get your score.');
       return;
     }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    listening.current = true;
     startedAt.current = Date.now();
+    finalTranscript.current = '';
+    audioChunks.current = [];
     setSeconds(0);
+    setTranscript('');
+    setAudioUrl('');
     setRecording(true);
-    setStatus(Recognition ? 'Listening… speak naturally' : 'Speech recognition is unavailable. Type your words below instead.');
+    setStatus(Recognition ? 'Listening… speak naturally' : 'Recording audio. Speech recognition is unavailable here, so type your words below.');
     timer.current = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt.current) / 1000)), 1000);
+
+    if (navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+        if (!listening.current) { stream.getTracks().forEach((track) => track.stop()); return; }
+        mediaStream.current = stream;
+        const recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = (event) => event.data.size > 0 && audioChunks.current.push(event.data);
+        recorder.onstop = () => {
+          setAudioUrl(URL.createObjectURL(new Blob(audioChunks.current, { type: recorder.mimeType || 'audio/webm' })));
+          stream.getTracks().forEach((track) => track.stop());
+        };
+        mediaRecorder.current = recorder;
+        recorder.start();
+      }).catch(() => {
+        if (listening.current) setStatus('Microphone access was blocked. You can still type your words below.');
+      });
+    }
+
     if (!Recognition) return;
     const instance = new Recognition();
     instance.continuous = true;
     instance.interimResults = true;
     instance.lang = 'en-US';
     instance.onresult = (event) => {
-      let words = '';
-      for (let i = 0; i < event.results.length; i += 1) words += event.results[i][0].transcript;
-      setTranscript(words);
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const text = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalTranscript.current += `${text} `;
+        else interim += text;
+      }
+      setTranscript(`${finalTranscript.current}${interim}`.trim());
     };
-    instance.onerror = () => setStatus('We could not hear that clearly. Try again or edit the transcript.');
-    instance.onend = () => { if (recording) instance.start(); };
+    instance.onerror = (event) => {
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        listening.current = false;
+        setStatus('Microphone permission is blocked. Allow mic access in your browser, or type your words below.');
+      } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        setStatus('We could not hear that clearly. Keep speaking, or edit the transcript.');
+      }
+    };
+    instance.onend = () => {
+      if (!listening.current) return;
+      try { instance.start(); } catch (_) { /* recognizer restarting too fast; onend fires again */ }
+    };
     recognition.current = instance;
-    instance.start();
+    try { instance.start(); } catch (_) { /* already started */ }
   }
 
   async function score() {
+    if (recording) stopEverything();
     if (!transcript.trim()) { setStatus('Add or record a response before scoring it.'); return; }
     setLoading(true);
     try {
