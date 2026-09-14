@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 
-const FALLBACK_PROMPTS = [
-  { id: 'daily-routine', title: 'My Day', level: 'Easy', text: 'I usually start my day with a cup of coffee and a short walk.', tip: 'Say the words slowly and clearly.' },
+const BUILTIN_SCENARIOS = [
+  { id: 'stage', name: 'Stage', description: 'Give a speech on the big stage!', image: '/stage.png' },
+  { id: 'concert', name: 'Concert', description: 'Sing or speak to a huge crowd.', image: '/concert.png' },
+  { id: 'interview', name: 'Interview', description: 'Answer questions like a pro.', image: '/interview.png' },
+  { id: 'classroom', name: 'Classroom', description: 'Share an idea in class.', image: '/classroom.png' },
 ];
 
 function speak(text) {
@@ -12,17 +15,26 @@ function formatTime(seconds) {
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-function localScore(text) {
-  const count = text.split(/\s+/).length;
-  const value = Math.min(95, 60 + count * 3);
-  return {
-    overall: value,
-    pronunciation: Math.max(55, value - 3),
-    correctness: value,
-    fluency: Math.max(55, value - 5),
-    feedback: [{ label: 'Great try!', detail: 'Keep speaking. You will get better every time.', type: 'strength' }],
-    alternative: 'I think practicing a little every day makes learning easier.',
-  };
+function scoreLocal(text, duration) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+  if (wordCount === 0) return { overall: 0, pronunciation: 0, correctness: 0, fluency: 0, feedback: [], alternative: '' };
+  const avgLen = words.reduce((sum, word) => sum + word.length, 0) / wordCount;
+  const sentences = text.split('.').filter((s) => s.trim()).length;
+  const correctness = Math.min(100, 60 + wordCount * 3 + Math.floor(avgLen * 3));
+  let fluency = 60;
+  if (duration > 0) {
+    const wpm = (wordCount / Math.max(duration, 1)) * 60;
+    fluency = Math.max(40, Math.min(100, 100 - Math.abs(wpm - 120) / 2));
+  } else {
+    fluency = Math.min(100, 60 + wordCount * 2);
+  }
+  const pronunciation = Math.min(100, 70 + Math.floor(avgLen * 2));
+  const overall = Math.round(pronunciation * 0.35 + correctness * 0.35 + fluency * 0.3);
+  const feedback = [{ type: 'strength', label: 'Great speaking!', detail: `You used ${wordCount} words. Keep it up!` }];
+  if (sentences) feedback.push({ type: 'tip', label: 'Sentences', detail: `You made ${sentences} sentence(s). Try to use full sentences to improve clarity.` });
+  if (duration > 0 && wordCount / Math.max(duration, 1) < 1) feedback.push({ type: 'tip', label: 'Pace', detail: 'Try speaking a little more. Longer answers help practice fluency.' });
+  return { overall, pronunciation, correctness, fluency, feedback, alternative: '' };
 }
 
 function StarRating({ score }) {
@@ -31,15 +43,18 @@ function StarRating({ score }) {
 }
 
 function App() {
-  const [prompts, setPrompts] = useState([]);
-  const [index, setIndex] = useState(0);
+  const [scenarios, setScenarios] = useState(BUILTIN_SCENARIOS);
+  const [view, setView] = useState('home');
+  const [activeScenario, setActiveScenario] = useState(null);
   const [transcript, setTranscript] = useState('');
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const [status, setStatus] = useState('Tap the big button to start!');
+  const [status, setStatus] = useState('Pick a place to practice!');
   const [feedback, setFeedback] = useState(null);
   const [loading, setLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [customImage, setCustomImage] = useState(null);
   const startedAt = useRef(0);
   const listening = useRef(false);
   const finalTranscript = useRef('');
@@ -48,10 +63,13 @@ function App() {
   const mediaStream = useRef(null);
   const audioChunks = useRef([]);
   const timer = useRef(null);
-  const prompt = prompts[index];
 
   useEffect(() => {
-    fetch('/api/prompts').then((response) => response.json()).then(setPrompts).catch(() => setPrompts(FALLBACK_PROMPTS));
+    fetch('/api/scenarios').then((res) => res.json()).then((data) => setScenarios([...BUILTIN_SCENARIOS, ...data.filter((item) => !BUILTIN_SCENARIOS.some((b) => b.id === item.id))])).catch(() => setScenarios(BUILTIN_SCENARIOS));
+    const stored = localStorage.getItem('speakwell_custom_scenarios');
+    if (stored) {
+      try { setScenarios((prev) => [...prev, ...JSON.parse(stored)]); } catch (_) { /* ignore */ }
+    }
   }, []);
 
   useEffect(() => () => {
@@ -61,6 +79,11 @@ function App() {
     mediaRecorder.current?.state === 'recording' && mediaRecorder.current.stop();
     mediaStream.current?.getTracks().forEach((track) => track.stop());
   }, []);
+
+  useEffect(() => {
+    const custom = scenarios.filter((s) => s.custom);
+    localStorage.setItem('speakwell_custom_scenarios', JSON.stringify(custom));
+  }, [scenarios]);
 
   function stopEverything() {
     listening.current = false;
@@ -73,20 +96,27 @@ function App() {
     setRecording(false);
   }
 
-  function selectPrompt(nextIndex) {
-    if (recording) stopEverything();
-    setIndex(nextIndex);
+  function startScenario(scenario) {
+    setActiveScenario(scenario);
     setTranscript('');
     setFeedback(null);
     setSeconds(0);
     setAudioUrl('');
-    setStatus('Tap the big button to start!');
+    setStatus('Tap Speak and say your own words!');
+    setView('practice');
+  }
+
+  function goHome() {
+    stopEverything();
+    setView('home');
+    setActiveScenario(null);
+    setStatus('Pick a place to practice!');
   }
 
   function toggleRecording() {
     if (recording) {
       stopEverything();
-      setStatus('Good job! Listen to your voice, then get your score.');
+      setStatus('Great! Listen back or get your score.');
       return;
     }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -99,7 +129,7 @@ function App() {
     setAudioUrl('');
     setFeedback(null);
     setRecording(true);
-    setStatus(Recognition ? 'I am listening. Say the sentence!' : 'Recording your voice. Type your words below when done.');
+    setStatus(Recognition ? 'I am listening. Say anything!' : 'Recording your voice. Type your words below when done.');
     timer.current = setInterval(() => setSeconds(Math.floor((Date.now() - startedAt.current) / 1000)), 1000);
 
     if (navigator.mediaDevices?.getUserMedia) {
@@ -114,9 +144,7 @@ function App() {
         };
         mediaRecorder.current = recorder;
         recorder.start();
-      }).catch(() => {
-        if (listening.current) setStatus('Microphone access blocked. You can type your words below!');
-      });
+      }).catch(() => { if (listening.current) setStatus('Microphone access blocked. Type your words below!'); });
     }
 
     if (!Recognition) return;
@@ -141,75 +169,100 @@ function App() {
         setStatus('I did not catch that. Try speaking a little louder!');
       }
     };
-    instance.onend = () => {
-      if (!listening.current) return;
-      try { instance.start(); } catch (_) { /* already started */ }
-    };
+    instance.onend = () => { if (listening.current) { try { instance.start(); } catch (_) { /* already started */ } } };
     recognition.current = instance;
     try { instance.start(); } catch (_) { /* already started */ }
   }
 
   async function score() {
     if (recording) stopEverything();
-    if (!transcript.trim()) { setStatus('Type or speak your sentence first, then tap Score!'); return; }
+    if (!transcript.trim()) { setStatus('Speak or type something first!'); return; }
     setLoading(true);
     try {
-      const response = await fetch('/api/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ promptId: prompt.id, transcript, duration: seconds }) });
+      const response = await fetch('/api/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript, duration: seconds }) });
       if (!response.ok) throw new Error('Scoring failed');
       setFeedback(await response.json());
     } catch (_) {
-      setFeedback(localScore(transcript));
+      setFeedback(scoreLocal(transcript, seconds));
     } finally {
       setLoading(false);
     }
   }
 
-  if (!prompt) return <div className="loading-page">Loading…</div>;
+  function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCustomImage(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function addCustomScenario() {
+    if (!customName.trim() || !customImage) { setStatus('Give your scene a name and pick a picture!'); return; }
+    const newScenario = { id: `custom-${Date.now()}`, name: customName.trim(), description: 'Your custom scene', image: customImage, custom: true };
+    setScenarios((prev) => [...prev, newScenario]);
+    setCustomName('');
+    setCustomImage(null);
+    setStatus('Your new scene is ready!');
+  }
+
+  if (view === 'practice' && activeScenario) {
+    return (
+      <div className="practice-screen" style={{ backgroundImage: `url(${activeScenario.image})` }}>
+        <button className="home-btn" onClick={goHome}>← Home</button>
+        <div className="practice-overlay">
+          <h2 className="scenario-title">{activeScenario.name}</h2>
+          <button className={`speak-btn ${recording ? 'recording' : ''}`} onClick={toggleRecording}><span>{recording ? 'Stop' : 'Speak'}</span></button>
+          <div className="timer">{formatTime(seconds)}</div>
+          <p className="status-text">{status}</p>
+          {audioUrl && !recording && <audio className="practice-audio" controls src={audioUrl} />}
+          <textarea className="practice-transcript" value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder="Your words will appear here…" />
+          <button className="score-btn" disabled={loading} onClick={score}>{loading ? 'Checking…' : 'Get my score ⭐'}</button>
+          {feedback && <div className="practice-feedback">
+            <StarRating score={feedback.overall} />
+            <div className="score-pills">
+              <div className="score-pill big"><strong>{feedback.overall}</strong><span>Total</span></div>
+              <div className="score-pill"><strong>{feedback.pronunciation}</strong><span>Speaking</span></div>
+              <div className="score-pill"><strong>{feedback.correctness}</strong><span>Words</span></div>
+              <div className="score-pill"><strong>{feedback.fluency}</strong><span>Flow</span></div>
+            </div>
+            <div className="notes">
+              {feedback.feedback.map((note, i) => <div className="note" key={i}><span>{note.type === 'strength' ? '⭐' : '💡'}</span><div><b>{note.label}</b><p>{note.detail}</p></div></div>)}
+            </div>
+          </div>}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="app-shell">
-      <header className="kid-header">
-        <a className="kid-brand" href="/"><span className="emoji">🎙️</span><span>SpeakWell</span></a>
-        <nav className="kid-nav"><a className="active" href="#practice">Practice</a><a href="#progress">Progress</a></nav>
-        <button className="kid-avatar" aria-label="Profile">👦</button>
-      </header>
-      <main id="practice" className="kid-main">
-        <section className="kid-card">
-          <span className="kid-level">{prompt.level}</span>
-          <h1 className="kid-title">{prompt.title}</h1>
-          <div className="kid-phrase-box"><span>“{prompt.text}”</span><button onClick={() => speak(prompt.text)} aria-label="Listen">🔊</button></div>
-          <p className="kid-instruction">Tap the red button and say the sentence out loud.</p>
-          <button className={`kid-big-button ${recording ? 'recording' : ''}`} onClick={toggleRecording}><span className="mic-emoji">🎤</span><span>{recording ? 'Stop' : 'Talk'}</span></button>
-          <div className="kid-timer">{formatTime(seconds)}</div>
-          <p className="kid-status">{status}</p>
-          {audioUrl && !recording && <audio className="kid-audio" controls src={audioUrl} />}
+    <div className="home-screen">
+      <header className="home-header"><span className="logo">🎙️ SpeakWell</span></header>
+      <main className="home-main">
+        <h1 className="home-title">Pick a place to practice! 🎤</h1>
+        <p className="home-sub">Choose a scene, then speak your own words. We will listen and help you improve.</p>
+        <div className="scenario-grid">
+          {scenarios.map((scenario) => (
+            <button key={scenario.id} className="scenario-card" onClick={() => startScenario(scenario)} style={{ backgroundImage: `url(${scenario.image})` }}>
+              <span className="scenario-name">{scenario.name}</span>
+              <span className="scenario-desc">{scenario.description}</span>
+            </button>
+          ))}
+        </div>
+        <section className="custom-section">
+          <h2>Make your own scene ✨</h2>
+          <input type="text" placeholder="Scene name, like My Room" value={customName} onChange={(e) => setCustomName(e.target.value)} />
+          <label className="upload-btn">
+            {customImage ? 'Photo added!' : 'Choose a background photo'}
+            <input type="file" accept="image/*" onChange={handleImageUpload} />
+          </label>
+          {customImage && <img className="preview" src={customImage} alt="Preview" />}
+          <button className="add-btn" onClick={addCustomScenario}>Add my scene</button>
         </section>
-        <section className="kid-card">
-          <label className="kid-label">Your words</label>
-          <textarea className="kid-transcript" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="Your words will appear here…" />
-          <button className="kid-score-btn" disabled={loading} onClick={score}>{loading ? 'Checking…' : 'Score my speaking ⭐'}</button>
-        </section>
-        <section className="kid-card" style={{ textAlign: 'left' }}>
-          <h2 style={{ marginTop: 0, color: 'var(--purple-dark)' }}>Pick another</h2>
-          <div className="kid-prompts">{prompts.map((item, itemIndex) => <button key={item.id} className={itemIndex === index ? 'active' : ''} onClick={() => selectPrompt(itemIndex)}>{item.title}<span className="level">{item.level}</span></button>)}</div>
-        </section>
-        {feedback && <section className="kid-feedback-card">
-          <h3>How you did</h3>
-          <StarRating score={feedback.overall} />
-          <div className="kid-scoreboard">
-            <div className="kid-score-pill big"><span className="num">{feedback.overall}</span><span className="label">Total</span></div>
-            <div className="kid-score-pill"><span className="num">{feedback.pronunciation}</span><span className="label">Speaking</span></div>
-            <div className="kid-score-pill"><span className="num">{feedback.correctness}</span><span className="label">Words</span></div>
-            <div className="kid-score-pill"><span className="num">{feedback.fluency}</span><span className="label">Flow</span></div>
-          </div>
-          <h3 style={{ marginTop: 24 }}>Helpful notes</h3>
-          {feedback.feedback.map((note, noteIndex) => <div className="kid-note" key={`${note.label}-${noteIndex}`}><span className="dot">{note.type === 'strength' ? '⭐' : '💡'}</span><div><b>{note.label}</b>{note.detail}</div></div>)}
-          <h3 style={{ marginTop: 24 }}>Better way to say it</h3>
-          <div className="kid-alternative">{feedback.alternative}</div>
-          <button className="kid-score-btn" onClick={() => speak(feedback.alternative)}>🔊 Listen</button>
-        </section>}
       </main>
-      <footer className="kid-footer">© 2024 SpeakWell · Keep speaking, keep smiling!</footer>
+      <footer className="home-footer">© 2024 SpeakWell · Speak, practice, improve!</footer>
     </div>
   );
 }
