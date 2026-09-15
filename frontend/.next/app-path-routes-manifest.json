@@ -1,7 +1,0 @@
-{
-  "/_global-error/page": "/_global-error",
-  "/_not-found/page": "/_not-found",
-  "/api/scenarios/route": "/api/scenarios",
-  "/api/score/route": "/api/score",
-  "/page": "/"
-}

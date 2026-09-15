@@ -50,28 +50,34 @@ function StarRating({ score }) {
 function DemoTranscript() {
   const [text, setText] = useState('');
   const [showScore, setShowScore] = useState(false);
+  const intervalRef = useRef(null);
+  const timeoutRef = useRef(null);
 
   const typeScript = useCallback(() => {
     setText('');
     setShowScore(false);
     let i = 0;
     let fullText = '';
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       if (i < DEMO_SCRIPTS.length) {
         fullText += (i > 0 ? ' ' : '') + DEMO_SCRIPTS[i];
         setText(fullText);
         i++;
       } else {
-        clearInterval(interval);
-        setTimeout(() => setShowScore(true), 800);
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        timeoutRef.current = setTimeout(() => setShowScore(true), 800);
       }
     }, 600);
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     const timeout = setTimeout(typeScript, 1000);
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, [typeScript]);
 
   return (
@@ -115,11 +121,21 @@ function App() {
   const timer = useRef(null);
 
   useEffect(() => {
-    fetch('/api/scenarios').then((res) => res.json()).then((data) => setScenarios([...BUILTIN_SCENARIOS, ...data.filter((item) => !BUILTIN_SCENARIOS.some((b) => b.id === item.id))])).catch(() => setScenarios(BUILTIN_SCENARIOS));
     const stored = localStorage.getItem('speakwell_custom_scenarios');
     if (stored) {
-      try { setScenarios((prev) => [...prev, ...JSON.parse(stored)]); } catch (_) { /* ignore */ }
+      try {
+        const customs = JSON.parse(stored);
+        if (Array.isArray(customs)) setScenarios((prev) => [...prev, ...customs.filter((item) => !prev.some((p) => p.id === item.id))]);
+      } catch (_) { /* ignore */ }
     }
+    // Functional update so custom scenes are preserved no matter
+    // whether the fetch resolves before or after the stored customs load.
+    fetch('/api/scenarios').then((res) => res.json()).then((data) => setScenarios((prev) => {
+      const customs = prev.filter((s) => s.custom);
+      const fresh = Array.isArray(data) ? data.filter((item) => !BUILTIN_SCENARIOS.some((b) => b.id === item.id)) : [];
+      const known = [...BUILTIN_SCENARIOS, ...fresh];
+      return [...known, ...customs.filter((c) => !known.some((s) => s.id === c.id))];
+    })).catch(() => { /* keep current scenarios, including customs */ });
   }, []);
 
   useEffect(() => {
