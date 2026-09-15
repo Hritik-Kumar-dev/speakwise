@@ -1,0 +1,1 @@
+{"$schema": "https://opencode.ai/config.json", "references": {"vercel-plugin": {"description": "Vercel ecosystem plugin — use for Next.js, deployments, Vercel CLI, and hosting diagnosis", "repository": "vercel/vercel-plugin"}}, "skills": {"paths": ["/home/hritik/.kimi-code/plugins/managed/vercel-plugin/skills"]}}
